@@ -30,14 +30,14 @@ def create_random_lattice_with_pN_edges(L, p):
       
     return G
 
-L = 500  # length of each side
+L = 1000  # length of each side
 N = L*L
 p1 = 0.55 # fraction of edges to add
 G = create_random_lattice_with_pN_edges(L,p1)
 
 pos = {(i, j): (i, j) for i in range(L) for j in range(L)}   
 labels = dict( ((i, j), i * 10 + j) for i, j in G.nodes() )
- 
+
 DRAW_NET=0
 if DRAW_NET:    
     nx.draw_networkx(G, pos=pos, with_labels=False)
@@ -46,7 +46,7 @@ if DRAW_NET:
 #%% Now, at each iteration we add p*N nodes to the graph
 nodes = list(G)
 
-step_p = 1/N
+step_p = 100/N
 start_p = p1+step_p #Where I want to start with higher res of p
 end_p = 0.1
 num_ps = int(end_p/step_p)
@@ -77,6 +77,8 @@ for i in tqdm(range(num_ps)):
     connected_components = sorted(nx.connected_components(G), key=len)
     ccs = [len(gi)/N for gi in connected_components]
     cluster_sizes_dict[p1+i*step_p]= ccs
+
+    
 #%%        
 # Get a list of keys in the dictionary
 p_keys = list(cluster_sizes_dict.keys())
@@ -110,7 +112,8 @@ plt.show()
 
 #%% Now, from the second gcc we can find p_c
 
-p_c= p_keys[np.argmax(second_largest_clusters)]
+idx_phase_trans = np.argmax(second_largest_clusters)
+p_c = p_keys[idx_phase_trans]
 print(p_c)
 
 #%% Delta exponent
@@ -125,37 +128,87 @@ print(p_c)
 # Subtract the gcc size from the Mass
 # The gcc size corresponds to the one that was found by the size of the second gcc for each iteration
 
+# I want to take the graphs starting at the critical point, and no larger than 0.05p 
+# How many points I need to take until I cover 0.05p? 0.05/step_size
+num_points_to_take_for_exp = int(0.05/step_p) # Number of points we wish to take in order to 
 
+gs_for_exponent = graph_list[idx_phase_trans:idx_phase_trans+num_points_to_take_for_exp]
 
+g_pc = gs_for_exponent[idx_phase_trans]
+gcc_pc_graph = max(nx.connected_components(g_pc), key=len)
+gcc_pc_subgraph = g_pc.subgraph(gcc_pc_graph)
+gcc = gcc_pc_subgraph.copy()
 
+#connected_components_pc = sorted(nx.connected_components(g_pc), key=len)
+#ccs_pc = [len(gi)/N for gi in connected_components]
 
+gcc_pc_size_0 = len(gcc)
+gcc_size = gcc_pc_size_0
 
+gcc_frac_pc_0=gcc_size/N
+# gcc_pc_graph_0 = max(nx.connected_components(g_pc), key=len)
 
+rho_step = 1/N
+gccMass=[0]
 
+for i in tqdm(range(num_points_to_take_for_exp)):
+    
+    num_nodes_to_test = int(rho_step*N)
+    
+    for j in range(num_nodes_to_test):
+        
+        # get a random node
+        random_node = random.choice(list(g_pc.nodes()))
 
+        # test if this node belongs to the gcc
+        if random_node not in gcc:
+            
+            gcc_node = random.choice(list(gcc.nodes))
 
+            # add an edge between the chosen node and the GCC node
+            g_pc.add_edge(random_node, gcc_node)
+            
+            #caluculate
+            curr_ccs = sorted(nx.connected_components(g_pc), key=len, reverse=True)
+            
+            curr_gcc_size = len(max(curr_ccs))
+            gccMass.append(  curr_gcc_size - gcc_pc_size_0 )
+            
+            # Update the values of g_pc
+            gcc = max(nx.connected_components(g_pc), key=len)
+            gcc = g_pc.subgraph(gcc)
+        else:
+            gccMass.append(gccMass[-1])
+# Plot the gcc mass as function of rho
+#%%
+plt.figure()
+# Enable LaTeX rendering for labels
+plt.rc('text', usetex=True)
 
+rho = np.arange(0, rho_step * num_points_to_take_for_exp, step=rho_step)
 
+# plot scatter plot
+x, y = rho, gccMass
+plt.scatter(x, y)
 
+# add linear fit
+z = np.polyfit(x, y, 1)
+p = np.poly1d(z)
+plt.plot(x,p(x),"r--")
 
+# calculate slope (exponent delta)
+delta = z[0]
 
+# show plot and slope value
+plt.xlabel('$\rho$')
+plt.ylabel('Gcc mass')
+plt.title('Change of Gcc mass as a function of rho')
+plt.show()
 
+print(f"Slope (delta) = {delta}")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#%%
+x=2
 
 
 
