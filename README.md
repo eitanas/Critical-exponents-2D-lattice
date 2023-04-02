@@ -1,1 +1,1 @@
-# Critical-exponents-2D-lattice
+# Critical-Exponents-2D-Lattice
